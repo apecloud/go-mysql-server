@@ -32,6 +32,8 @@ type ReplicaSourceInfo struct {
 	Uuid                 string
 	ConnectRetryInterval uint32
 	ConnectRetryCount    uint64
+	SourceLogFile        string
+	SourceLogPos         uint64
 }
 
 func ReplicaSourceInfoToRow(ctx *sql.Context, v *ReplicaSourceInfo) (sql.Row, error) {
@@ -57,6 +59,12 @@ func ReplicaSourceInfoToRow(ctx *sql.Context, v *ReplicaSourceInfo) (sql.Row, er
 	row[replicaSourceInfoTblColIndex_Port] = v.Port
 	row[replicaSourceInfoTblColIndex_Connect_retry] = v.ConnectRetryInterval
 	row[replicaSourceInfoTblColIndex_Retry_count] = v.ConnectRetryCount
+	if v.SourceLogFile != "" {
+		row[replicaSourceInfoTblColIndex_Master_log_name] = v.SourceLogFile
+	}
+	if v.SourceLogPos != 0 {
+		row[replicaSourceInfoTblColIndex_Master_log_pos] = v.SourceLogPos
+	}
 
 	return row, nil
 }
@@ -74,6 +82,8 @@ func ReplicaSourceInfoFromRow(ctx *sql.Context, row sql.Row) (*ReplicaSourceInfo
 		Uuid:                 row[replicaSourceInfoTblColIndex_Uuid].(string),
 		ConnectRetryInterval: row[replicaSourceInfoTblColIndex_Connect_retry].(uint32),
 		ConnectRetryCount:    row[replicaSourceInfoTblColIndex_Retry_count].(uint64),
+		SourceLogFile:        row[replicaSourceInfoTblColIndex_Master_log_name].(string),
+		SourceLogPos:         row[replicaSourceInfoTblColIndex_Master_log_pos].(uint64),
 	}, nil
 }
 
@@ -84,7 +94,9 @@ func ReplicaSourceInfoEquals(left, right *ReplicaSourceInfo) bool {
 		left.Password == right.Password &&
 		left.Uuid == right.Uuid &&
 		left.ConnectRetryInterval == right.ConnectRetryInterval &&
-		left.ConnectRetryCount == right.ConnectRetryCount
+		left.ConnectRetryCount == right.ConnectRetryCount &&
+		left.SourceLogFile == right.SourceLogFile &&
+		left.SourceLogPos == right.SourceLogPos
 }
 
 var ReplicaSourceInfoOps = in_mem_table.ValueOps[*ReplicaSourceInfo]{

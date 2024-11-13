@@ -795,8 +795,8 @@ func (b *BaseBuilder) buildShowReplicaStatus(ctx *sql.Context, n *plan.ShowRepli
 		status.SourceUser,        // Source_User
 		status.SourcePort,        // Source_Port
 		status.ConnectRetry,      // Connect_Retry
-		"INVALID",                // Source_Log_File
-		0,                        // Read_Source_Log_Pos
+		status.SourceLogFile,     // Source_Log_File
+		status.SourceLogPos,      // Read_Source_Log_Pos
 		nil,                      // Relay_Log_File
 		nil,                      // Relay_Log_Pos
 		"INVALID",                // Relay_Source_Log_File

@@ -1128,7 +1128,27 @@ func (rcv *ReplicaSourceInfo) MutateConnectRetryCount(n uint64) bool {
 	return rcv._tab.MutateUint64Slot(16, n)
 }
 
-const ReplicaSourceInfoNumFields = 7
+func (rcv *ReplicaSourceInfo) SourceLogFile() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(18))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *ReplicaSourceInfo) SourceLogPos() uint64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(20))
+	if o != 0 {
+		return rcv._tab.GetUint64(o + rcv._tab.Pos)
+	}
+	return 0
+}
+
+func (rcv *ReplicaSourceInfo) MutateSourceLogPos(n uint64) bool {
+	return rcv._tab.MutateUint64Slot(20, n)
+}
+
+const ReplicaSourceInfoNumFields = 9
 
 func ReplicaSourceInfoStart(builder *flatbuffers.Builder) {
 	builder.StartObject(ReplicaSourceInfoNumFields)
@@ -1153,6 +1173,12 @@ func ReplicaSourceInfoAddConnectRetryInterval(builder *flatbuffers.Builder, conn
 }
 func ReplicaSourceInfoAddConnectRetryCount(builder *flatbuffers.Builder, connectRetryCount uint64) {
 	builder.PrependUint64Slot(6, connectRetryCount, 0)
+}
+func ReplicaSourceInfoAddSourceLogFile(builder *flatbuffers.Builder, sourceLogFile flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(7, flatbuffers.UOffsetT(sourceLogFile), 0)
+}
+func ReplicaSourceInfoAddSourceLogPos(builder *flatbuffers.Builder, sourceLogPos uint64) {
+	builder.PrependUint64Slot(8, sourceLogPos, 0)
 }
 func ReplicaSourceInfoEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

@@ -133,6 +133,8 @@ type ReplicaStatus struct {
 	SourceUser            string
 	SourcePort            uint
 	ConnectRetry          uint32
+	SourceLogFile         string
+	SourceLogPos          uint64
 	SourceRetryCount      uint64
 	ReplicaIoRunning      string
 	ReplicaSqlRunning     string

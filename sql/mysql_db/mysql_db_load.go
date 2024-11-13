@@ -158,5 +158,7 @@ func LoadReplicaSourceInfo(serialReplicaSourceInfo *serial.ReplicaSourceInfo) *R
 		Uuid:                 string(serialReplicaSourceInfo.Uuid()),
 		ConnectRetryInterval: serialReplicaSourceInfo.ConnectRetryInterval(),
 		ConnectRetryCount:    serialReplicaSourceInfo.ConnectRetryCount(),
+		SourceLogFile:        string(serialReplicaSourceInfo.SourceLogFile()),
+		SourceLogPos:         serialReplicaSourceInfo.SourceLogPos(),
 	}
 }
