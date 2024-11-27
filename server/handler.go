@@ -443,7 +443,7 @@ func (h *Handler) doQuery(
 	var processedAtLeastOneBatch bool
 
 	// zero/single return schema use spooling shortcut
-	if types.IsOkResultSchema(schema) {
+	if nodeReturnsOkResultSchema(analyzedPlan) || types.IsOkResultSchema(schema) {
 		r, err = resultForOkIter(sqlCtx, rowIter)
 	} else if schema == nil {
 		r, err = resultForEmptyIter(sqlCtx, rowIter, resultFields)
