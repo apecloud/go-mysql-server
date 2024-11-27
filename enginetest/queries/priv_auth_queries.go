@@ -67,6 +67,7 @@ type UserPrivilegeTestAssertion struct {
 // match the non-nil empty row with it, due to the aforementioned distinction.
 //
 // Statements that are run before every test (the state that all tests start with):
+// CREATE USER tester@localhost;
 // CREATE TABLE mydb.test (pk BIGINT PRIMARY KEY, v1 BIGINT);
 // CREATE TABLE mydb.test2 (pk BIGINT PRIMARY KEY, v1 BIGINT);
 // CREATE TABLE otherdb.test (pk BIGINT PRIMARY KEY, v1 BIGINT);
@@ -406,6 +407,7 @@ var UserPrivTests = []UserPrivilegeTest{
 		Name: "Basic database and table name visibility",
 		SetUpScript: []string{
 			"CREATE TABLE mydb.test (pk BIGINT PRIMARY KEY);",
+			"CREATE TABLE mydb.invis (pk BIGINT PRIMARY KEY);",
 			"INSERT INTO mydb.test VALUES (1);",
 			"CREATE USER tester@localhost;",
 			"CREATE ROLE test_role;",
@@ -416,6 +418,12 @@ var UserPrivTests = []UserPrivilegeTest{
 				User:        "tester",
 				Host:        "localhost",
 				Query:       "SELECT * FROM mydb.test;/*1*/",
+				ExpectedErr: sql.ErrDatabaseAccessDeniedForUser,
+			},
+			{
+				User:        "tester",
+				Host:        "localhost",
+				Query:       "WITH cte AS (SELECT * FROM mydb.test) SELECT * FROM cte;/*1*/",
 				ExpectedErr: sql.ErrDatabaseAccessDeniedForUser,
 			},
 			{
@@ -507,6 +515,24 @@ var UserPrivTests = []UserPrivilegeTest{
 				Host:     "localhost",
 				Query:    "SELECT * FROM mydb.test;/*6*/",
 				Expected: []sql.Row{{1}},
+			},
+			{
+				User:     "tester",
+				Host:     "localhost",
+				Query:    "WITH cte AS (SELECT * FROM mydb.test) SELECT * FROM cte;/*6*/",
+				Expected: []sql.Row{{1}},
+			},
+			{
+				User:        "tester",
+				Host:        "localhost",
+				Query:       "WITH cte AS (SELECT * FROM mydb.test) SELECT * FROM cte JOIN mydb.invis t2 WHERE cte.pk = t2.pk;",
+				ExpectedErr: sql.ErrTableAccessDeniedForUser,
+			},
+			{
+				User:     "tester",
+				Host:     "localhost",
+				Query:    "WITH cte AS (SELECT * FROM mydb.test) SELECT * FROM cte JOIN mydb.test t2 WHERE cte.pk = t2.pk;",
+				Expected: []sql.Row{{1, 1}},
 			},
 			{
 				User:        "tester",
