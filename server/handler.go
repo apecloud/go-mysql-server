@@ -437,13 +437,20 @@ func (h *Handler) doQuery(
 		return remainder, err
 	}
 
+	isOkResult := (qFlags != nil && qFlags.DmlIsSet()) ||
+		nodeReturnsOkResultSchema(analyzedPlan) || // analyzedPlan may be nil
+		types.IsOkResultSchema(schema) // schema may be nil
+	if isOkResult {
+		schema = nil
+	}
+
 	// create result before goroutines to avoid |ctx| racing
 	resultFields := schemaToFields(sqlCtx, schema)
 	var r *sqltypes.Result
 	var processedAtLeastOneBatch bool
 
 	// zero/single return schema use spooling shortcut
-	if nodeReturnsOkResultSchema(analyzedPlan) || types.IsOkResultSchema(schema) {
+	if isOkResult {
 		r, err = resultForOkIter(sqlCtx, rowIter)
 	} else if schema == nil {
 		r, err = resultForEmptyIter(sqlCtx, rowIter, resultFields)
