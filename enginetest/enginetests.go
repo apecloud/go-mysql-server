@@ -359,6 +359,95 @@ func TestInfoSchema(t *testing.T, h Harness) {
 		)
 	})
 
+	t.Run("information_schema.processlist projection with alias case", func(t *testing.T) {
+		e := mustNewEngine(t, h)
+		defer e.Close()
+
+		if IsServerEngine(e) {
+			t.Skip("skipping for server engine as the processlist returned from server differs")
+		}
+		p := sqle.NewProcessList()
+		p.AddConnection(1, "localhost")
+
+		ctx := NewContext(h)
+		ctx.Session.SetClient(sql.Client{Address: "localhost", User: "root"})
+		ctx.Session.SetConnectionId(1)
+		ctx.ProcessList = p
+		ctx.SetCurrentDatabase("")
+
+		p.ConnectionReady(ctx.Session)
+
+		ctx, err := p.BeginQuery(ctx, "SELECT foo")
+		require.NoError(t, err)
+
+		p.AddConnection(2, "otherhost")
+		sess2 := sql.NewBaseSessionWithClientServer("localhost", sql.Client{Address: "otherhost", User: "root"}, 2)
+		sess2.SetCurrentDatabase("otherdb")
+		p.ConnectionReady(sess2)
+		ctx2 := sql.NewContext(context.Background(), sql.WithPid(2), sql.WithSession(sess2))
+		ctx2, err = p.BeginQuery(ctx2, "SELECT bar")
+		require.NoError(t, err)
+		p.EndQuery(ctx2)
+
+		TestQueryWithContext(t, ctx, e, h,
+			"SELECT id, uSeR, hOST FROM information_schema.processlist pl ORDER BY id",
+			[]sql.Row{
+				{uint64(1), "root", "localhost"},
+				{uint64(2), "root", "otherhost"},
+			},
+			sql.Schema{
+				{Name: "id", Type: types.Uint64},
+				{Name: "uSeR", Type: types.MustCreateString(sqltypes.VarChar, 96, sql.Collation_Information_Schema_Default)},
+				{Name: "hOST", Type: types.MustCreateString(sqltypes.VarChar, 783, sql.Collation_Information_Schema_Default)},
+			},
+			nil, nil,
+		)
+	})
+
+	t.Run("information_schema.processlist projection with aliased join case", func(t *testing.T) {
+		e := mustNewEngine(t, h)
+		defer e.Close()
+
+		if IsServerEngine(e) {
+			t.Skip("skipping for server engine as the processlist returned from server differs")
+		}
+		p := sqle.NewProcessList()
+		p.AddConnection(1, "localhost")
+
+		ctx := NewContext(h)
+		ctx.Session.SetClient(sql.Client{Address: "localhost", User: "root"})
+		ctx.Session.SetConnectionId(1)
+		ctx.ProcessList = p
+		ctx.SetCurrentDatabase("")
+
+		p.ConnectionReady(ctx.Session)
+
+		ctx, err := p.BeginQuery(ctx, "SELECT foo")
+		require.NoError(t, err)
+
+		p.AddConnection(2, "otherhost")
+		sess2 := sql.NewBaseSessionWithClientServer("localhost", sql.Client{Address: "otherhost", User: "root"}, 2)
+		sess2.SetCurrentDatabase("otherdb")
+		p.ConnectionReady(sess2)
+		ctx2 := sql.NewContext(context.Background(), sql.WithPid(2), sql.WithSession(sess2))
+		ctx2, err = p.BeginQuery(ctx2, "SELECT bar")
+		require.NoError(t, err)
+		p.EndQuery(ctx2)
+
+		TestQueryWithContext(t, ctx, e, h,
+			"SELECT id, uSeR, hOST FROM information_schema.processlist pl join information_schema.schemata on true ORDER BY id limit 1",
+			[]sql.Row{
+				{uint64(1), "root", "localhost"},
+			},
+			sql.Schema{
+				{Name: "id", Type: types.Uint64},
+				{Name: "uSeR", Type: types.MustCreateString(sqltypes.VarChar, 96, sql.Collation_Information_Schema_Default)},
+				{Name: "hOST", Type: types.MustCreateString(sqltypes.VarChar, 783, sql.Collation_Information_Schema_Default)},
+			},
+			nil, nil,
+		)
+	})
+
 	for _, tt := range queries.SkippedInfoSchemaQueries {
 		t.Run(tt.Query, func(t *testing.T) {
 			t.Skip()
@@ -5743,6 +5832,7 @@ func TestTypesOverWire(t *testing.T, harness ClientHarness, sessionBuilder serve
 					require.NoError(t, err)
 					expectedRowSet := script.Results[queryIdx]
 					expectedRowIdx := 0
+					buf := sql.NewByteBuffer(1000)
 					var engineRow sql.Row
 					for engineRow, err = engineIter.Next(ctx); err == nil; engineRow, err = engineIter.Next(ctx) {
 						if !assert.True(t, r.Next()) {
@@ -5760,7 +5850,7 @@ func TestTypesOverWire(t *testing.T, harness ClientHarness, sessionBuilder serve
 							break
 						}
 						expectedEngineRow := make([]*string, len(engineRow))
-						row, err := server.RowToSQL(ctx, sch, engineRow, nil)
+						row, err := server.RowToSQL(ctx, sch, engineRow, nil, buf)
 						if !assert.NoError(t, err) {
 							break
 						}
