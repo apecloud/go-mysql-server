@@ -813,10 +813,7 @@ func (b *BaseBuilder) buildShowReplicaStatus(ctx *sql.Context, n *plan.ShowRepli
 	lastIoErrorTimestamp := formatReplicaStatusTimestamp(status.LastIoErrorTimestamp)
 	lastSqlErrorTimestamp := formatReplicaStatusTimestamp(status.LastSqlErrorTimestamp)
 
-	sslAllowed := "No"
-	if status.SourceSsl {
-		sslAllowed = "Yes"
-	}
+	sslAllowed := "Ignored"
 
 	row = sql.Row{
 		"",                       // Replica_IO_State
