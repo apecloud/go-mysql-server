@@ -222,6 +222,34 @@ func TestTimeString(t *testing.T) {
 	require.Equal(t, "time(6)", Time.String())
 }
 
+func TestTimePrecision(t *testing.T) {
+	ctx := sql.NewEmptyContext()
+	tests := []struct {
+		precision int
+		value     string
+		expected  string
+		maxLength uint32
+	}{
+		{precision: 0, value: "01:02:03", expected: "01:02:03", maxLength: 10},
+		{precision: 0, value: "01:02:03.123456", expected: "01:02:03", maxLength: 10},
+		{precision: 3, value: "01:02:03", expected: "01:02:03.000", maxLength: 14},
+		{precision: 3, value: "01:02:03.123456", expected: "01:02:03.123", maxLength: 14},
+		{precision: 6, value: "01:02:03", expected: "01:02:03.000000", maxLength: 17},
+		{precision: 6, value: "01:02:03.123456", expected: "01:02:03.123456", maxLength: 17},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("time(%d)", test.precision), func(t *testing.T) {
+			typ := MustCreateTimeType(test.precision)
+			value, err := typ.SQL(ctx, nil, test.value)
+			require.NoError(t, err)
+			require.Equal(t, test.expected, value.ToString())
+			require.Equal(t, test.precision, typ.Precision())
+			require.Equal(t, test.maxLength, typ.MaxTextResponseByteLength(ctx))
+		})
+	}
+}
+
 func TestTimeZero(t *testing.T) {
 	_, ok := Time.Zero().(Timespan)
 	require.True(t, ok)

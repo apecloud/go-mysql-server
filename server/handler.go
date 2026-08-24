@@ -1242,6 +1242,8 @@ func schemaToFields(ctx *sql.Context, s sql.Schema) []*querypb.Field {
 		if types.IsDecimal(c.Type) {
 			decimalType := c.Type.(sql.DecimalType)
 			fields[i].Decimals = uint32(decimalType.Scale())
+		} else if types.IsTimespan(c.Type) {
+			fields[i].Decimals = uint32(c.Type.(types.TimeType).Precision())
 		} else if types.IsDatetimeType(c.Type) {
 			dtType := c.Type.(sql.DatetimeType)
 			fields[i].Decimals = uint32(dtType.Precision())

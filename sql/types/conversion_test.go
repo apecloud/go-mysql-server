@@ -83,13 +83,13 @@ func TestColumnTypeToType_Time(t *testing.T) {
 		expected sql.Type
 		err      bool
 	}{
-		{"", Time, false},
-		{"0", nil, true},
-		{"1", nil, true},
-		{"2", nil, true},
-		{"3", nil, true},
-		{"4", nil, true},
-		{"5", nil, true},
+		{"", MustCreateTimeType(0), false},
+		{"0", MustCreateTimeType(0), false},
+		{"1", MustCreateTimeType(1), false},
+		{"2", MustCreateTimeType(2), false},
+		{"3", MustCreateTimeType(3), false},
+		{"4", MustCreateTimeType(4), false},
+		{"5", MustCreateTimeType(5), false},
 		{"6", Time, false},
 		{"7", nil, true},
 	}
@@ -115,6 +115,30 @@ func TestColumnTypeToType_Time(t *testing.T) {
 			} else {
 				assert.Equal(t, test.expected, res)
 			}
+		})
+	}
+}
+
+func TestColumnTypeToType_TimeStringRoundTrip(t *testing.T) {
+	for precision := 0; precision <= MaxTimePrecision; precision++ {
+		t.Run(fmt.Sprintf("precision_%d", precision), func(t *testing.T) {
+			declaration := "TIME"
+			if precision > 0 {
+				declaration = fmt.Sprintf("TIME(%d)", precision)
+			}
+
+			stmt, err := sqlparser.Parse("CREATE TABLE test (value " + declaration + ")")
+			require.NoError(t, err)
+			ddl, ok := stmt.(*sqlparser.DDL)
+			require.True(t, ok)
+			resolved, err := ColumnTypeToType(&ddl.TableSpec.Columns[0].Type)
+			require.NoError(t, err)
+
+			expected := "time"
+			if precision > 0 {
+				expected = fmt.Sprintf("time(%d)", precision)
+			}
+			require.Equal(t, expected, resolved.String())
 		})
 	}
 }

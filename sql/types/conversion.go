@@ -351,21 +351,18 @@ func ColumnTypeToType(ct *sqlparser.ColumnType) (sql.Type, error) {
 	case "date":
 		return CreateDatetimeType(sqltypes.Date, 0)
 	case "time":
+		precision := int64(0)
 		if ct.Length != nil {
-			length, err := strconv.ParseInt(string(ct.Length.Val), 10, 64)
+			var err error
+			precision, err = strconv.ParseInt(string(ct.Length.Val), 10, 64)
 			if err != nil {
 				return nil, err
 			}
-			switch length {
-			case 0, 1, 2, 3, 4, 5:
-				return nil, fmt.Errorf("TIME length not yet supported")
-			case 6:
-				return Time, nil
-			default:
+			if precision < 0 || precision > MaxTimePrecision {
 				return nil, fmt.Errorf("TIME only supports a length from 0 to 6")
 			}
 		}
-		return Time, nil
+		return CreateTimeType(int(precision))
 	case "timestamp":
 		precision := int64(0)
 		if ct.Length != nil {

@@ -1016,7 +1016,7 @@ func TestSchemaToFields(t *testing.T) {
 		{Name: "datetime", OrgName: "datetime", Table: "table1", OrgTable: "table1", Database: "db1", Type: query.Type_DATETIME, Charset: uint32(sql.CharacterSet_utf8mb4), ColumnLength: 26, Flags: uint32(query.MySqlFlag_NOT_NULL_FLAG)},
 		{Name: "timestamp", OrgName: "timestamp", Table: "table1", OrgTable: "table1", Database: "db1", Type: query.Type_TIMESTAMP, Charset: uint32(sql.CharacterSet_utf8mb4), ColumnLength: 26, Flags: uint32(query.MySqlFlag_NOT_NULL_FLAG)},
 		{Name: "date", OrgName: "date", Table: "table1", OrgTable: "table1", Database: "db1", Type: query.Type_DATE, Charset: uint32(sql.CharacterSet_utf8mb4), ColumnLength: 10, Flags: uint32(query.MySqlFlag_NOT_NULL_FLAG)},
-		{Name: "time", OrgName: "time", Table: "table1", OrgTable: "table1", Database: "db1", Type: query.Type_TIME, Charset: uint32(sql.CharacterSet_utf8mb4), ColumnLength: 17, Flags: uint32(query.MySqlFlag_NOT_NULL_FLAG)},
+		{Name: "time", OrgName: "time", Table: "table1", OrgTable: "table1", Database: "db1", Type: query.Type_TIME, Charset: uint32(sql.CharacterSet_utf8mb4), ColumnLength: 17, Flags: uint32(query.MySqlFlag_NOT_NULL_FLAG), Decimals: 6},
 		{Name: "year", OrgName: "year", Table: "table1", OrgTable: "table1", Database: "db1", Type: query.Type_YEAR, Charset: uint32(sql.CharacterSet_utf8mb4), ColumnLength: 4, Flags: uint32(query.MySqlFlag_NOT_NULL_FLAG)},
 
 		// Set and Enum Types
@@ -1055,6 +1055,27 @@ func TestSchemaToFields(t *testing.T) {
 			assert.Equal(t, expected[i], fields[i])
 		})
 	}
+}
+
+func TestSchemaToFieldsTimePrecision(t *testing.T) {
+	ctx := sql.NewEmptyContext()
+	schema := sql.Schema{
+		{Name: "time_default", Type: types.MustCreateTimeType(0)},
+		{Name: "time_0", Type: types.MustCreateTimeType(0)},
+		{Name: "time_3", Type: types.MustCreateTimeType(3)},
+		{Name: "time_6", Type: types.MustCreateTimeType(6)},
+	}
+
+	fields := schemaToFields(ctx, schema)
+	require.Len(t, fields, 4)
+	require.Equal(t, uint32(0), fields[0].Decimals)
+	require.Equal(t, uint32(10), fields[0].ColumnLength)
+	require.Equal(t, uint32(0), fields[1].Decimals)
+	require.Equal(t, uint32(10), fields[1].ColumnLength)
+	require.Equal(t, uint32(3), fields[2].Decimals)
+	require.Equal(t, uint32(14), fields[2].ColumnLength)
+	require.Equal(t, uint32(6), fields[3].Decimals)
+	require.Equal(t, uint32(17), fields[3].ColumnLength)
 }
 
 // TestHandlerMaxTextResponseBytes tests that the handler calculates the correct max text response byte
