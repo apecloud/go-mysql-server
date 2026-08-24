@@ -191,7 +191,7 @@ func IsTextOnly(t sql.Type) bool {
 
 // IsTimespan checks if t is a time (timespan)
 func IsTimespan(t sql.Type) bool {
-	_, ok := t.(TimespanType_)
+	_, ok := t.(TimeType)
 	return ok
 }
 

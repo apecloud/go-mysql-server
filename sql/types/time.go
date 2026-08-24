@@ -16,6 +16,7 @@ package types
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -32,7 +33,8 @@ import (
 )
 
 var (
-	Time TimeType = TimespanType_{}
+	// Time is a TIME value with maximum fractional-second precision.
+	Time TimeType = MustCreateTimeType(MaxTimePrecision)
 
 	ErrConvertingToTimeType = errors.NewKind("value %v is not a valid Time")
 
@@ -46,13 +48,15 @@ var (
 	timeValueType = reflect.TypeOf(Timespan(0))
 )
 
+const MaxTimePrecision = 6
+
 // TimeType represents the TIME type.
 // https://dev.mysql.com/doc/refman/8.0/en/time.html
-// TIME is implemented as TIME(6).
 // The type of the returned value is Timespan.
-// TODO: implement parameters on the TIME type
 type TimeType interface {
 	sql.Type
+	// Precision returns the number of fractional-second digits.
+	Precision() int
 	// ConvertToTimespan returns a Timespan from the given interface. Follows the same conversion rules as
 	// Convert(), in that this will process the value based on its base-10 visual representation (for example, Convert()
 	// will interpret the value `1234` as 12 minutes and 34 seconds). Returns an error for nil values.
@@ -67,16 +71,37 @@ type TimeType interface {
 	MicrosecondsToTimespan(v int64) Timespan
 }
 
-type TimespanType_ struct{}
+type TimespanType_ struct {
+	precision int
+}
 
 var _ TimeType = TimespanType_{}
 var _ sql.CollationCoercible = TimespanType_{}
 
 // MaxTextResponseByteLength implements the Type interface
 func (t TimespanType_) MaxTextResponseByteLength(*sql.Context) uint32 {
-	// 10 digits are required for a text representation without microseconds, but with microseconds
-	// requires 17, so return 17 as an upper limit (i.e. len(+123:00:00.999999"))
-	return 17
+	// 10 bytes are required for the sign, three hour digits, and HH:MM:SS.
+	if t.precision == 0 {
+		return 10
+	}
+	return uint32(11 + t.precision)
+}
+
+// CreateTimeType creates a TIME type with the requested fractional-second precision.
+func CreateTimeType(precision int) (TimeType, error) {
+	if precision < 0 || precision > MaxTimePrecision {
+		return nil, fmt.Errorf("precision must be between 0 and 6, got %d", precision)
+	}
+	return TimespanType_{precision: precision}, nil
+}
+
+// MustCreateTimeType is the same as CreateTimeType except it panics on errors.
+func MustCreateTimeType(precision int) TimeType {
+	t, err := CreateTimeType(precision)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
 
 // Timespan is the value type returned by TimeType.Convert().
@@ -246,13 +271,13 @@ func (t TimespanType_) ConvertToTimeDuration(v interface{}) (time.Duration, erro
 
 // Equals implements the Type interface.
 func (t TimespanType_) Equals(otherType sql.Type) bool {
-	_, ok := otherType.(TimespanType_)
-	return ok
+	other, ok := otherType.(TimeType)
+	return ok && t.precision == other.Precision()
 }
 
 // Promote implements the Type interface.
 func (t TimespanType_) Promote() sql.Type {
-	return t
+	return Time
 }
 
 // SQL implements Type interface.
@@ -266,7 +291,11 @@ func (t TimespanType_) SQL(_ *sql.Context, dest []byte, v interface{}) (sqltypes
 		return sqltypes.Value{}, err
 	}
 
-	dest = ti.AppendBytes(dest)
+	isNeg, h, m, s, micros := ti.timespanToUnits()
+	if isNeg {
+		dest = append(dest, '-')
+	}
+	dest = appendTimeFormat(dest, int64(h), int64(m), int64(s), int64(micros), t.precision)
 	return sqltypes.MakeTrusted(sqltypes.Time, dest), nil
 }
 
@@ -276,14 +305,26 @@ func (t TimespanType_) SQLValue(ctx *sql.Context, v sql.Value, dest []byte) (sql
 		return sqltypes.NULL, nil
 	}
 
-	x := values.ReadInt64(v.Val)
-	dest = Timespan(x).AppendBytes(dest)
+	x := Timespan(values.ReadInt64(v.Val))
+	isNeg, h, m, s, micros := x.timespanToUnits()
+	if isNeg {
+		dest = append(dest, '-')
+	}
+	dest = appendTimeFormat(dest, int64(h), int64(m), int64(s), int64(micros), t.precision)
 	return sqltypes.MakeTrusted(sqltypes.Time, dest), nil
 }
 
 // String implements Type interface.
 func (t TimespanType_) String() string {
-	return "time(6)"
+	if t.precision == 0 {
+		return "time"
+	}
+	return fmt.Sprintf("time(%d)", t.precision)
+}
+
+// Precision implements TimeType.
+func (t TimespanType_) Precision() int {
+	return t.precision
 }
 
 // Type implements Type interface.
